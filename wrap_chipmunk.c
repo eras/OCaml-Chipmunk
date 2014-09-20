@@ -122,15 +122,13 @@ CAMLprim value
 ml_cpBodyGetUserData(value body)
 {
     cpDataPointer d = cpBodyGetUserData(cpBody_val(body));
-    int r = (int) d;
-    return Val_int(r);
+    return Val_int(d);
 }
 
 CAMLprim value
 ml_cpBodySetUserData(value body, value mlv)
 {
-    int d = Int_val(mlv);
-    cpDataPointer dp = (cpDataPointer) d;
+    cpDataPointer dp = (cpDataPointer) mlv;
     cpBodySetUserData(cpBody_val(body), dp);
     return Val_unit;
 }
