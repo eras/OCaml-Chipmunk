@@ -25,9 +25,18 @@
 
 all: chipmunk.cma chipmunk.cmxa
 
+CHIPMUNK_SRC=Chipmunk-6.0.3
+CHIPMUNK_BUILD=chipmunk-build
+CHIPMUNK_LIB=$(CHIPMUNK_BUILD)/src/libchipmunk.a
+CHIPMUNK_INC=$(CHIPMUNK_SRC)/include
 
 # generated parts
 gens:  wrap_chipmunk.gen.c  chipmunk.gen.ml
+
+$(CHIPMUNK_LIB):
+	mkdir $(CHIPMUNK_BUILD) || true
+	cd $(CHIPMUNK_BUILD) && cmake -DCMAKE_C_FLAGS=-fPIC ../$(CHIPMUNK_SRC) && make chipmunk_static
+	cd $(CHIPMUNK_BUILD) && mkdir objs && cd objs && ar x ../src/libchipmunk.a
 
 wrap_chipmunk.gen.c: gen_funcs.h  generate_funcs.ml  generate_structs.ml  gen_structs.h
 	> $@
@@ -44,16 +53,13 @@ chipmunk.gen.ml: gen_funcs.h  generate_funcs.ml  generate_structs.ml  gen_struct
 	echo "(** {4 Structure Members Access} *)"         >> $@
 	ocaml generate_structs.ml --gen-ml < gen_structs.h >> $@
 
-wrap_chipmunk.o: wrap_chipmunk.c  wrap_chipmunk.gen.c
-	ocamlc -c -ccopt "-O3 -std=gnu99 -ffast-math" $<
+wrap_chipmunk.o: wrap_chipmunk.c  wrap_chipmunk.gen.c $(CHIPMUNK_LIB)
+	ocamlc -c -ccopt "-O3 -std=gnu99 -ffast-math -I$(CHIPMUNK_INC)" $<
 
-dll_chipmunk_stubs.so  lib_chipmunk_stubs.a: wrap_chipmunk.o
+dll_chipmunk_stubs.so  lib_chipmunk_stubs.a: wrap_chipmunk.o $(CHIPMUNK_LIB)
 	ocamlmklib  \
-	    -L/usr/local/  \
-	    -L/usr/local/lib  \
-	    -o  _chipmunk_stubs  $<  \
-	    -ccopt -O3  -ccopt -std=gnu99  -ccopt -ffast-math  \
-	    -lchipmunk
+	    -o  _chipmunk_stubs  $< $(CHIPMUNK_BUILD)/objs/*.o  \
+	    -ccopt -O3  -ccopt -std=gnu99  -ccopt -ffast-math
 
 #  Makes use of a minimal preprocessor for OCaml source files.
 #  It is similar to cpp, but this replacement for cpp is because
@@ -93,22 +99,17 @@ CUSTOM=-custom
 
 chipmunk.cma:  chipmunk.cmo  dll_chipmunk_stubs.so
 	ocamlc -a  $(CUSTOM)  -o $@  $<  \
-	       -ccopt -L/usr/local/lib  \
 	       -dllib dll_chipmunk_stubs.so  \
-	      -cclib -l_chipmunk_stubs  \
-	      -cclib -lchipmunk 
+	      -cclib -l_chipmunk_stubs
 
 # native
 chipmunk.cmx: chipmunk.ml chipmunk.cmi
 	ocamlopt -c $<
 
 chipmunk.cmxa  chipmunk.a:  chipmunk.cmx  dll_chipmunk_stubs.so
-	ocamlopt -a  -o $@  $<  \
+	ocamlopt -a  -o $@  $< \
 	      -cclib -l_chipmunk_stubs  \
-	  -ccopt -O3  -ccopt -std=gnu99  -ccopt -ffast-math  \
-	  -ccopt -L/usr/local/  \
-	  -ccopt -L/usr/local/lib  \
-	      -cclib -lchipmunk
+	  -ccopt -O3  -ccopt -std=gnu99  -ccopt -ffast-math
 
 .PHONY: clean-doc clean clean-mlpp run-opt-demo test install
 
@@ -131,6 +132,7 @@ clean: clean-doc clean-mlpp
 	    doc/*.{html,css}  \
 	    *.gen.{ml,c}  chipmunk.ml{,i}  \
 	    oo.mli  log* 
+	rm -rf $(CHIPMUNK_BUILD)
 
 # demo
 DEMO=./demos/moon_buggy.ml
