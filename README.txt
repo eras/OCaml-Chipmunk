@@ -2,6 +2,9 @@
   This archive contains OCaml bindings for the
   Chipmunk 2D physics library:
     http://chipmunk-physics.net/
+    
+  This version has been modified (by eras) to embed
+  the required Chipmunk version 6.0.3 inside the library.
 
   This version of the bindings was tested with Chipmunk
   version 6.0.3.
